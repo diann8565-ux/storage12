@@ -162,7 +162,15 @@ const authMiddleware = async (c, next) => {
 };
 
 // --- App Initialization ---
-export const app = new Hono().basePath('/api');
+export const app = new Hono<{
+  Variables: {
+    user: {
+      id: string;
+      email: string;
+      role: string;
+    }
+  }
+}>().basePath('/api');
 
 // Fix CORS: Explicitly allow all origins, methods, and headers
 app.use('*', cors({
