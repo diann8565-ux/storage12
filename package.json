@@ -8,6 +8,7 @@
     "dev:api": "npx tsx watch api/dev.ts",
     "dev:web": "vite",
     "build": "vite build",
+    "start": "tsx api/prod.ts",
     "prod": "npm run build && npm run start",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
