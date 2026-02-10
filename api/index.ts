@@ -174,7 +174,7 @@ export const app = new Hono<{
 
 // Fix CORS: Explicitly allow all origins, methods, and headers
 app.use('*', cors({
-  origin: (origin) => origin || '*',
+  origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-API-KEY'],
   exposeHeaders: ['Content-Length', 'X-Kuma-Revision'],
@@ -185,10 +185,19 @@ app.use('*', cors({
 app.use('*', compress());
 app.use('*', logger());
 
+// Debug Middleware to log path
+app.use('*', async (c, next) => {
+  console.log(`[${new Date().toISOString()}] Request: ${c.req.method} ${c.req.path}`);
+  await next();
+});
+
 // --- Routes ---
 
-// Health
-app.get('/health', (c) => c.text('API OK'));
+// Health - Moved up and simplified
+app.get('/health', (c) => {
+  console.log('Health check hit');
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Test Endpoint for API Key Verification
 app.get('/test-connection', authMiddleware, (c) => {
