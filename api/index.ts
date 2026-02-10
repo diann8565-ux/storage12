@@ -174,7 +174,7 @@ export const app = new Hono<{
 
 // Fix CORS: Explicitly allow all origins, methods, and headers
 app.use('*', cors({
-  origin: '*',
+  origin: (origin) => origin || '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-API-KEY'],
   exposeHeaders: ['Content-Length', 'X-Kuma-Revision'],
