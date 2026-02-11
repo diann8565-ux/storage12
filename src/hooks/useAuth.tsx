@@ -54,8 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       const response = await api.auth.signIn({ email, password });
-      localStorage.setItem('auth_token', response.data.token);
-      setUser(response.data.user);
+      const { access, user } = response.data;
+      localStorage.setItem('auth_token', access);
+      setUser(user);
       return { error: null };
     } catch (error: unknown) {
       const message = (error as AxiosError<{ error?: string }>)?.response?.data?.error || "Login failed";
@@ -69,8 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: new Error("Dev login disabled in production") };
       }
       const response = await api.auth.devLogin(email);
-      localStorage.setItem('auth_token', response.data.token);
-      setUser(response.data.user);
+      const { access, user } = response.data;
+      localStorage.setItem('auth_token', access);
+      setUser(user);
       return { error: null };
     } catch (error: unknown) {
       const message = (error as AxiosError<{ error?: string }>)?.response?.data?.error || "Dev login failed";

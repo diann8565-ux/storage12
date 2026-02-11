@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/hooks/useAuth";
+import { DataProvider } from "@/hooks/useData";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
@@ -25,34 +26,36 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/login" element={<Login />} />
-              
-              {/* Protected Routes */}
-              <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/files" element={<FileManager />} />
-                <Route path="/upload" element={<UploadCenter />} />
-                <Route path="/storage-accounts" element={<StorageAccounts />} />
-                <Route path="/categories" element={<Categories />} />
-                <Route path="/api-config" element={<ApiConfig />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/security" element={<Security />} />
-                <Route path="/activity" element={<ActivityLogs />} />
-                <Route path="/help" element={<HelpDocs />} />
-              </Route>
-              
-              {/* Redirects */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <DataProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/login" element={<Login />} />
+                
+                {/* Protected Routes */}
+                <Route element={<AppLayout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/files" element={<FileManager />} />
+                  <Route path="/upload" element={<UploadCenter />} />
+                  <Route path="/storage-accounts" element={<StorageAccounts />} />
+                  <Route path="/categories" element={<Categories />} />
+                  <Route path="/api-config" element={<ApiConfig />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/security" element={<Security />} />
+                  <Route path="/activity" element={<ActivityLogs />} />
+                  <Route path="/help" element={<HelpDocs />} />
+                </Route>
+                
+                {/* Redirects */}
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </DataProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>

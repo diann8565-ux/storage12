@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Plus, Edit2, Trash2, CheckCircle, XCircle, Database, ExternalLink, Activity, Cloud, Download, Upload, FileJson, FileSpreadsheet } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { api } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useData } from "@/hooks/useData";
 import { toast } from "sonner";
 import { upload } from "@imagekit/javascript";
 
@@ -26,8 +28,7 @@ interface StorageCredential {
 }
 
 export default function StorageAccounts() {
-  const [accounts, setAccounts] = useState<StorageCredential[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { storageAccounts: accounts, loading: dataLoading, refreshData } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [editingAccount, setEditingAccount] = useState<StorageCredential | null>(null);
@@ -40,22 +41,6 @@ export default function StorageAccounts() {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
-
-  useEffect(() => {
-    fetchAccounts();
-  }, [user]);
-
-  const fetchAccounts = async () => {
-    if (!user) return;
-
-    try {
-      const response = await api.storageCredentials.list();
-      setAccounts(response.data || []);
-    } catch (error) {
-      toast.error("Gagal mengambil akun");
-    }
-    setLoading(false);
-  };
 
   const generateSignature = async (token: string, expire: number, privateKey: string) => {
     try {
@@ -125,11 +110,6 @@ export default function StorageAccounts() {
         const timestamp = Math.floor(Date.now() / 1000);
         const paramsStr = `timestamp=${timestamp}`;
         const signature = await generateCloudinarySignature(paramsStr, privateKeyToUse);
-        
-        // We can't easily upload without a file, but we can verify credentials 
-        // by attempting a signed call. Since most endpoints require a file or are admin-only (which need basic auth),
-        // we will assume success if we can generate signature and required fields are present.
-        // HOWEVER, to be real, we can try to upload a tiny data URI if we want to be sure.
         
         // Let's try to upload a 1x1 pixel gif
         const formDataUpload = new FormData();
@@ -221,7 +201,7 @@ export default function StorageAccounts() {
           details: { account_name: formData.name, provider: formData.provider },
         });
       }
-      fetchAccounts();
+      refreshData();
       resetForm();
     } catch (error) {
       toast.error(editingAccount ? "Gagal memperbarui akun" : "Gagal membuat akun");
@@ -232,7 +212,7 @@ export default function StorageAccounts() {
     try {
       await api.storageCredentials.update(id, { is_active: !currentStatus });
       toast.success(`Akun ${!currentStatus ? "diaktifkan" : "dinonaktifkan"}`);
-      fetchAccounts();
+      refreshData();
     } catch (error) {
       toast.error("Gagal memperbarui status");
     }
@@ -242,7 +222,7 @@ export default function StorageAccounts() {
     try {
       await api.storageCredentials.delete(id);
       toast.success("Akun dihapus");
-      fetchAccounts();
+      refreshData();
     } catch (error) {
       toast.error("Gagal menghapus akun");
     }
@@ -441,7 +421,7 @@ export default function StorageAccounts() {
         if (successCount > 0) {
           toast.success(`Berhasil mengimpor ${successCount} akun.`);
           if (failCount > 0) toast.warning(`${failCount} akun gagal diimpor.`);
-          fetchAccounts();
+          refreshData();
         } else {
           toast.error("Gagal mengimpor semua akun.");
         }
@@ -456,6 +436,15 @@ export default function StorageAccounts() {
     };
     reader.readAsText(file);
   };
+
+  // Only show loading if we have NO accounts AND data is loading
+  if (dataLoading && accounts.length === 0) {
+    return (
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">Memuat akun...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -622,11 +611,7 @@ export default function StorageAccounts() {
       </div>
 
       {/* Accounts Grid */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">Memuat akun...</p>
-        </div>
-      ) : accounts.length === 0 ? (
+      {accounts.length === 0 ? (
         <Card className="glass-card">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Database className="h-16 w-16 text-muted-foreground/50" />

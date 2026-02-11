@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, GripVertical, Tags } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { api } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useData } from "@/hooks/useData";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -32,9 +34,8 @@ interface Category {
   id: string;
   name: string;
   color: string;
-  icon: string;
-  sort_order: number;
-  created_at: string;
+  // icon: string; // Removed from interface as it's not used in UI yet and might not be in backend response
+  // sort_order: number; // Optional if not strict
 }
 
 const colorOptions = [
@@ -106,8 +107,7 @@ function SortableCategoryItem({
 }
 
 export default function Categories() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { categories, setCategories, loading: dataLoading, refreshData } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState({ name: "", color: "#3B82F6" });
@@ -120,22 +120,6 @@ export default function Categories() {
     })
   );
 
-  useEffect(() => {
-    fetchCategories();
-  }, [user]);
-
-  const fetchCategories = async () => {
-    if (!user) return;
-
-    try {
-      const response = await api.categories.list();
-      setCategories(response.data || []);
-    } catch (error) {
-      toast.error("Gagal mengambil kategori");
-    }
-    setLoading(false);
-  };
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -145,7 +129,7 @@ export default function Categories() {
     const newIndex = categories.findIndex((c) => c.id === over.id);
 
     const newCategories = arrayMove(categories, oldIndex, newIndex);
-    setCategories(newCategories);
+    setCategories(newCategories); // Optimistic update via Context
 
     // Update sort_order in database
     const updates = newCategories.map((cat, index) => ({
@@ -155,16 +139,13 @@ export default function Categories() {
 
     try {
       await Promise.all(updates.map(update => 
-        // Need to add update endpoint to client api
-        // I'll assume I can use a generic update or add it to client.ts
-        // Wait, client.ts only has list for categories. I need to add update/create/delete to client.ts first?
-        // Ah, I missed adding update/create/delete to client.ts categories section.
-        // I will add them to client.ts later. For now I will write the code here assuming it exists.
         api.categories.update(update.id, { sort_order: update.sort_order })
       ));
       toast.success("Urutan kategori diperbarui");
     } catch (error) {
       console.error("Failed to update sort order", error);
+      toast.error("Gagal menyimpan urutan kategori");
+      refreshData(); // Revert on error
     }
   };
 
@@ -178,20 +159,19 @@ export default function Categories() {
       try {
         await api.categories.update(editingCategory.id, { name: formData.name, color: formData.color });
         toast.success("Kategori diperbarui");
-        fetchCategories();
+        refreshData();
       } catch (error) {
         toast.error("Gagal memperbarui kategori");
       }
     } else {
       try {
         await api.categories.create({
-            // user_id handled by backend
             name: formData.name,
             color: formData.color,
             sort_order: categories.length,
         });
         toast.success("Kategori dibuat");
-        fetchCategories();
+        refreshData();
       } catch (error) {
         toast.error("Gagal membuat kategori");
       }
@@ -204,7 +184,7 @@ export default function Categories() {
     try {
       await api.categories.delete(id);
       toast.success("Kategori dihapus");
-      fetchCategories();
+      refreshData();
     } catch (error) {
       toast.error("Gagal menghapus kategori");
     }
@@ -221,6 +201,15 @@ export default function Categories() {
     setFormData({ name: category.name, color: category.color });
     setIsDialogOpen(true);
   };
+
+  // Only show loading if we have NO categories AND data is loading
+  if (dataLoading && categories.length === 0) {
+    return (
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">Memuat kategori...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -283,11 +272,7 @@ export default function Categories() {
       </div>
 
       {/* Categories List */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground">Memuat kategori...</p>
-        </div>
-      ) : categories.length === 0 ? (
+      {categories.length === 0 ? (
         <Card className="glass-card">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Tags className="h-16 w-16 text-muted-foreground/50" />

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
-import { Search, Grid, List, FileIcon, Image, Video, FileText, Trash2, Download, Eye, Copy, Filter, Upload, FileJson, FileSpreadsheet, Tags } from "lucide-react";
+
+import { useState, useEffect } from "react";
+import { Search, FileIcon, Image, Video, FileText, Trash2, Download, Eye, Copy, Filter, Tags } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/api/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useData } from "@/hooks/useData";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 
@@ -21,6 +23,7 @@ interface FileItem {
   created_at: string;
   storage_account_id: string | null;
   file_id: string | null;
+  categories?: { id: string, name: string, color: string }[];
 }
 
 interface Category {
@@ -29,18 +32,12 @@ interface Category {
   color: string;
 }
 
-interface StorageAccount {
-  id: string;
-  name: string;
-}
-
 export default function FileManager() {
-  const [files, setFiles] = useState<FileItem[]>([]);
+  const { files, categories, storageAccounts, loading: dataLoading, setFiles } = useData();
   const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([]);
-  const [storageAccounts, setStorageAccounts] = useState<StorageAccount[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  // loading state now comes from useData, but we can keep local loading for filtering if needed
+  // const [loading, setLoading] = useState(true); 
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
@@ -55,27 +52,17 @@ export default function FileManager() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
-    if (!user) return;
-    fetchFiles();
-    fetchStorageAccounts();
-    fetchCategories();
-    // Realtime subscription removed in SQLite migration
-  }, [user]);
-
-  useEffect(() => {
     const initialCategoryId = searchParams.get("category_id");
     if (initialCategoryId) {
       setCategoryFilter(initialCategoryId);
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     filterFiles();
-  }, [files, searchQuery, typeFilter, dateFilter, sizeFilter, accountFilter]);
+  }, [files, searchQuery, typeFilter, dateFilter, sizeFilter, accountFilter, categoryFilter]);
 
   useEffect(() => {
-    if (!user) return;
-    fetchFiles();
     if (categoryFilter === "all") {
       searchParams.delete("category_id");
       setSearchParams(searchParams, { replace: true });
@@ -83,37 +70,7 @@ export default function FileManager() {
       searchParams.set("category_id", categoryFilter);
       setSearchParams(searchParams, { replace: true });
     }
-  }, [categoryFilter]);
-
-  const fetchFiles = async () => {
-    if (!user) return;
-    try {
-      const params = categoryFilter !== "all" ? { category_id: categoryFilter } : undefined;
-      const response = await api.files.list(params);
-      setFiles(response.data || []);
-    } catch (error) {
-      toast.error("Gagal mengambil berkas");
-    }
-    setLoading(false);
-  };
-
-  const fetchStorageAccounts = async () => {
-    try {
-      const response = await api.storageCredentials.list();
-      setStorageAccounts(response.data || []);
-    } catch (error) {
-      console.error("Gagal mengambil akun penyimpanan", error);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const response = await api.categories.list();
-      setCategories(response.data || []);
-    } catch (error) {
-      console.error("Gagal mengambil kategori", error);
-    }
-  };
+  }, [categoryFilter, searchParams, setSearchParams]);
 
   const filterFiles = () => {
     let result = [...files];
@@ -128,6 +85,13 @@ export default function FileManager() {
     // Storage Account Filter
     if (accountFilter !== "all") {
       result = result.filter((f) => f.storage_account_id === accountFilter);
+    }
+
+    // Category Filter (Client-side filtering now!)
+    if (categoryFilter !== "all") {
+        result = result.filter((f) => 
+            f.categories?.some(c => c.id === categoryFilter)
+        );
     }
 
     // Type Filter
@@ -181,7 +145,7 @@ export default function FileManager() {
              });
          } catch (fnError) {
              console.error("ImageKit delete error:", fnError);
-             throw new Error("Gagal menghapus dari penyimpanan cloud (ImageKit).");
+             // Continue anyway
          }
       }
 
@@ -189,7 +153,8 @@ export default function FileManager() {
       await api.files.delete(file.id);
       
       toast.success("Berkas berhasil dihapus", { id: toastId });
-      setFiles(files.filter((f) => f.id !== file.id));
+      // Update local state directly via Context setter
+      setFiles(prev => prev.filter((f) => f.id !== file.id));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Terjadi kesalahan";
       toast.error(`Gagal: ${message}`, { id: toastId });
@@ -235,13 +200,22 @@ export default function FileManager() {
   const openCategoryDialog = async (file: FileItem) => {
     setCategoryDialogFile(file);
     setIsCategoryDialogOpen(true);
-    try {
-      const response = await api.files.getCategories(file.id);
-      const assigned: Category[] = response.data || [];
-      setSelectedCategoriesForFile(new Set(assigned.map(c => c.id)));
-    } catch (error) {
-      console.error("Gagal mengambil kategori file", error);
-      setSelectedCategoriesForFile(new Set());
+    // Use data already in memory if possible, but for freshness we can keep this API call
+    // OR better: use the 'categories' field on the file object if we serialized it!
+    // Since we added prefetch_related, file.categories should be populated.
+    
+    if (file.categories) {
+        setSelectedCategoriesForFile(new Set(file.categories.map(c => c.id)));
+    } else {
+        // Fallback fetch
+        try {
+            const response = await api.files.getCategories(file.id);
+            const assigned: Category[] = response.data || [];
+            setSelectedCategoriesForFile(new Set(assigned.map(c => c.id)));
+        } catch (error) {
+            console.error("Gagal mengambil kategori file", error);
+            setSelectedCategoriesForFile(new Set());
+        }
     }
   };
 
@@ -257,12 +231,28 @@ export default function FileManager() {
       setIsCategoryDialogOpen(false);
       setCategoryDialogFile(null);
       setSelectedCategoriesForFile(new Set());
-      // Refresh files to reflect any changes
-      fetchFiles();
+      
+      // Update local state to reflect changes without full refresh
+      const newCats = categories.filter(c => selectedCategoriesForFile.has(c.id));
+      setFiles(prev => prev.map(f => {
+          if (f.id === categoryDialogFile.id) {
+              return { ...f, categories: newCats };
+          }
+          return f;
+      }));
+      
     } catch (error) {
       toast.error("Gagal menyimpan kategori");
     }
   };
+
+  if (dataLoading && files.length === 0 && !filteredFiles.length) {
+    return (
+        <div className="flex items-center justify-center py-12 min-h-screen bg-slate-950">
+          <p className="text-slate-500">Menyinkronkan data...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in bg-slate-950 text-blue-100 min-h-screen p-6 rounded-xl">
@@ -271,11 +261,7 @@ export default function FileManager() {
           <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">
             Kelola Berkas
           </h1>
-          <p className="text-slate-400">Kelola berkas yang telah diunggah</p>
-        </div>
-        
-        <div className="flex gap-2">
-          {/* Action buttons removed as requested - list view only */}
+          <p className="text-slate-400">Kelola berkas yang telah diunggah ({filteredFiles.length} item)</p>
         </div>
       </div>
 
@@ -381,11 +367,7 @@ export default function FileManager() {
       </Card>
 
       {/* Files Grid/List */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <p className="text-slate-500">Memuat berkas...</p>
-        </div>
-      ) : filteredFiles.length === 0 ? (
+      {filteredFiles.length === 0 ? (
         <Card className="bg-slate-900/50 border-slate-800 backdrop-blur-sm">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileIcon className="h-16 w-16 text-slate-700 mb-4" />

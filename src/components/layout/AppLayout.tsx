@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { User, Settings, LogOut, Bell, Search, Shield } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { AIFloatingButton } from "@/components/AIFloatingButton";
+import { StoragePermissionDialog } from "@/components/StoragePermissionDialog";
 
 export function AppLayout() {
   const { user, loading, signOut } = useAuth();
@@ -67,6 +68,7 @@ export function AppLayout() {
       <div className="flex min-h-screen w-full aurora-bg">
         <AppSidebar />
         <SidebarInset className="flex-1">
+          <StoragePermissionDialog />
           <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border/50 bg-background/80 backdrop-blur-xl px-6 transition-all duration-300">
             <SidebarTrigger className="-ml-2 hover:bg-slate-800/50" />
             
