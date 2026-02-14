@@ -17,7 +17,8 @@ interface ApiKey {
   prefix?: string;
   key?: string;
   last_used_at: string | null;
-  created_at: string;
+  created_at?: string;
+  createdAt?: string;
 }
 
 export default function ApiConfig() {
@@ -173,13 +174,15 @@ export default function ApiConfig() {
                       <TableCell className="font-medium">{key.name}</TableCell>
                       <TableCell className="font-mono text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <span className="bg-muted px-2 py-1 rounded">{key.prefix || "-"}</span>
+                          <span className="bg-muted px-2 py-1 rounded">
+                            {key.prefix || (key.key ? (key.key.startsWith("sk_") ? key.key.slice(0,7) : key.key.slice(0,7)) : "-")}
+                          </span>
                           <Button
                             size="icon"
                             variant="ghost"
                             className="h-6 w-6"
-                            onClick={() => copyToClipboard(key.prefix || "")}
-                            disabled={!key.prefix}
+                            onClick={() => copyToClipboard(key.prefix || (key.key ? key.key.slice(0,7) : ""))}
+                            disabled={!(key.prefix || key.key)}
                           >
                             <Copy className="h-3 w-3" />
                           </Button>
@@ -188,7 +191,11 @@ export default function ApiConfig() {
                       <TableCell>
                         {key.last_used_at ? new Date(key.last_used_at).toLocaleString() : '-'}
                       </TableCell>
-                      <TableCell>{key.created_at ? new Date(key.created_at).toLocaleDateString("id-ID") : "-"}</TableCell>
+                      <TableCell>
+                        {(key.created_at || key.createdAt)
+                          ? new Date(key.created_at || key.createdAt || "").toLocaleDateString("id-ID")
+                          : "-"}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => deleteKey(key.id)}>
