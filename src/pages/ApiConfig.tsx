@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { Key, Copy, Plus, Trash2, CheckCircle, Terminal, Info } from "lucide-react";
+import { Key, Copy, Terminal, Info, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,9 +23,7 @@ interface ApiKey {
 export default function ApiConfig() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newKeyName, setNewKeyName] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const [generatedKey] = useState<string | null>(null);
 
   useEffect(() => {
     fetchKeys();
@@ -43,28 +40,8 @@ export default function ApiConfig() {
     }
   };
 
-  const createKey = async () => {
-    if (!newKeyName.trim()) return;
-    try {
-      const response = await api.apiKeys.create({ name: newKeyName });
-      const newKey = response.data;
-      setKeys([newKey, ...keys]);
-      setGeneratedKey(newKey.key);
-      setNewKeyName("");
-      toast.success("API Key berhasil dibuat");
-    } catch (error) {
-      toast.error("Gagal membuat API Key");
-    }
-  };
-
-  const deleteKey = async (id: string) => {
-    try {
-      await api.apiKeys.delete(id);
-      setKeys(keys.filter(k => k.id !== id));
-      toast.success("API Key dihapus");
-    } catch (error) {
-      toast.error("Gagal menghapus API Key");
-    }
+  const deleteKey = async (_id: string) => {
+    toast.error("Manajemen API Key dipindahkan ke ENV. Penghapusan via UI dinonaktifkan.");
   };
 
   const copyToClipboard = (text: string) => {
@@ -80,66 +57,8 @@ export default function ApiConfig() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">API & Integrasi</h1>
-          <p className="text-muted-foreground">Kelola kunci API untuk akses eksternal (n8n, cURL, dll)</p>
+          <p className="text-muted-foreground">Kunci API kini dikelola melalui ENV (n8n, cURL, dll)</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) setGeneratedKey(null);
-        }}>
-          <DialogTrigger asChild>
-            <Button className="aurora-gradient">
-              <Plus className="mr-2 h-4 w-4" />
-              Buat API Key Baru
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="glass-strong">
-            <DialogHeader>
-              <DialogTitle>Buat API Key Baru</DialogTitle>
-              <DialogDescription>
-                API Key ini akan memberikan akses penuh untuk mengunggah berkas ke akun Anda.
-              </DialogDescription>
-            </DialogHeader>
-            
-            {!generatedKey ? (
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nama Kunci</Label>
-                  <Input 
-                    id="name" 
-                    placeholder="Contoh: Integrasi n8n" 
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    className="glass"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 py-4">
-                <Alert className="bg-green-500/10 border-green-500/50 text-green-500">
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertTitle>Berhasil Dibuat!</AlertTitle>
-                  <AlertDescription>
-                    Salin kunci ini sekarang. Anda tidak akan bisa melihatnya lagi.
-                  </AlertDescription>
-                </Alert>
-                <div className="flex items-center gap-2">
-                  <Input value={generatedKey} readOnly className="font-mono bg-muted" />
-                  <Button size="icon" variant="outline" onClick={() => copyToClipboard(generatedKey)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <DialogFooter>
-              {!generatedKey ? (
-                <Button onClick={createKey} disabled={!newKeyName.trim()}>Buat Kunci</Button>
-              ) : (
-                <Button onClick={() => setIsDialogOpen(false)}>Tutup</Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -156,7 +75,16 @@ export default function ApiConfig() {
             {loading ? (
               <p>Memuat...</p>
             ) : keys.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">Belum ada API Key. Buat satu untuk memulai.</p>
+              <div className="space-y-3">
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Manajemen via ENV</AlertTitle>
+                  <AlertDescription>
+                    Set EXTERNAL_UPLOAD_API_KEY di environment server. Tidak ada pembuatan kunci melalui panel.
+                  </AlertDescription>
+                </Alert>
+                <p className="text-muted-foreground text-center py-4">Daftar di bawah hanya menampilkan kunci lama (jika ada).</p>
+              </div>
             ) : (
               <Table>
                 <TableHeader>
