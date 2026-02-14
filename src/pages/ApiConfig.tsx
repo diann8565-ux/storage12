@@ -14,9 +14,10 @@ import { api } from "@/api/client";
 interface ApiKey {
   id: string;
   name: string;
-  key: string;
+  prefix?: string;
+  key?: string;
   last_used_at: string | null;
-  createdAt: string;
+  created_at: string;
 }
 
 export default function ApiConfig() {
@@ -172,8 +173,14 @@ export default function ApiConfig() {
                       <TableCell className="font-medium">{key.name}</TableCell>
                       <TableCell className="font-mono text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <span className="bg-muted px-2 py-1 rounded">{key.key}</span>
-                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => copyToClipboard(key.key)}>
+                          <span className="bg-muted px-2 py-1 rounded">{key.prefix || "-"}</span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => copyToClipboard(key.prefix || "")}
+                            disabled={!key.prefix}
+                          >
                             <Copy className="h-3 w-3" />
                           </Button>
                         </div>
@@ -181,7 +188,7 @@ export default function ApiConfig() {
                       <TableCell>
                         {key.last_used_at ? new Date(key.last_used_at).toLocaleString() : '-'}
                       </TableCell>
-                      <TableCell>{new Date(key.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{key.created_at ? new Date(key.created_at).toLocaleDateString("id-ID") : "-"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => deleteKey(key.id)}>
